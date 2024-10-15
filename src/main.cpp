@@ -46,7 +46,8 @@ void draw() {
     ImGui::Text("You can put any ImGui widgets here.");
 
     if (ImGui::Button("Close")) {
-        ImGuiCocos::get().toggle(); // This will hide our ImGui interface.
+        /* This will hide our ImGui interface. */
+        ImGuiCocos::get().toggle();
     }
 
     ImGui::End();
