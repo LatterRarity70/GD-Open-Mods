@@ -30,7 +30,6 @@ void setup() {
      * This function should be used for things like setting up ImGui style, loading fonts, etc.
      * For this example, we will set up a custom font (which is stored in our mod resources).
      */
-
     auto& io = ImGui::GetIO();
     auto fontPath = geode::Mod::get()->getResourcesDir() / "Roboto-Regular.ttf";
     io.Fonts->AddFontFromFileTTF(fontPath.string().c_str(), 16.0f);
@@ -41,7 +40,6 @@ void draw() {
      * This function should be used for drawing ImGui widgets.
      * You can put any ImGui code here, and it will be rendered on the screen.
      */
-
     ImGui::Begin("Hello, ImGui!");
 
     ImGui::Text("This is a simple ImGui window.");
@@ -80,7 +78,7 @@ void draw() {
 $on_mod(Loaded) {
     ImGuiCocos::get()
         .setup(setup).draw(draw)
-        .setVisible(false); // We don't want our ImGui interface to be visible by default.
+        .setVisible(false); /* We don't want our ImGui interface to be visible by default. */
 }
 
 /**
@@ -97,11 +95,11 @@ $execute {
     using namespace keybinds;
 
     BindManager::get()->registerBindable({
-        "open-imgui"_spr, // Keybind ID
-        "Open Interface", // Keybind name
-        "Open or close the ImGui interface.", // Keybind description
+        "open-imgui"_spr, /* Keybind ID */
+        "Open Interface", /* Keybind name */
+        "Open or close the ImGui interface.", /* Keybind description */
         { Keybind::create(cocos2d::enumKeyCodes::KEY_P, Modifier::Alt) },
-        "My ImGui Mod" // Category name (usually the name of your mod)
+        "My ImGui Mod" /* Category name (usually the name of your mod) */
     });
     new EventListener([=](InvokeBindEvent* event) {
         if (event->isDown()) ImGuiCocos::get().toggle();
