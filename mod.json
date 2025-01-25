@@ -1,24 +1,19 @@
 {
 	"geode": "$GEODE_VERSION",
 	"gd": {
-		"win": "2.206",
-		"android": "2.206",
-		"mac": "2.206",
-		"ios": "2.206"
+		"win": "2.2074",
+		"android": "2.2074",
+		"mac": "2.2074",
+		"ios": "2.2074"
 	},
 	"id": "$MOD_ID",
 	"name": "$MOD_NAME",
 	"version": "$MOD_VERSION",
 	"developer": "$MOD_DEVELOPER",
 	"description": "$MOD_DESCRIPTION",
-	"dependencies": [
-		{
-			"id": "geode.custom-keybinds",
-			"version": ">=v1.9.0",
-			"importance": "required",
-			"platforms": ["win", "android"]
-		}
-	],
+	"dependencies": {
+		"geode.custom-keybinds": ">=v1.10.2"
+	},
 	"resources": {
 		"files": [
 			"resources/*.ttf"
