@@ -4,20 +4,10 @@
 #include <imgui-cocos.hpp>
 
 /**
- * For now, Custom Keybinds is not available on macOS, so we make sure it's included only on other platforms.
- */
-#ifndef GEODE_IS_MACOS
-/**
  * Custom Keybinds mod provides a way to bind custom key combinations to actions in the game.
  * We will use it to bind open/close button for out ImGui interface.
  */
 #include <geode.custom-keybinds/include/Keybinds.hpp>
-/**
- * To know whether we should use custom keybinds, we define a macro here.
- * We will check for it at a later point in the code.
- */
-#define USE_CUSTOM_KEYBINDS 1
-#endif
 
 /**
  * Now, we should define our setup and draw callbacks for ImGui.
@@ -83,11 +73,9 @@ $on_mod(Loaded) {
 }
 
 /**
- * Let's define our keybinds here. First, we check if we should use custom keybinds.
  * $execute is a special macro that allows us to execute code when our mod first loads.
  * Then we will use Custom Keybinds API to register a new keybind for opening/closing our ImGui interface.
  */
-#if USE_CUSTOM_KEYBINDS
 $execute {
     /**
      * Bringing some namespaces into scope for easier access to classes and functions.
@@ -107,20 +95,3 @@ $execute {
         return ListenerResult::Propagate;
     }, InvokeBindFilter(nullptr, "open-imgui"_spr));
 }
-#else
-/**
- * If we're not using custom keybinds, we could just hook CCKeyboardDispatcher::dispatchKeyboardMSG,
- * and check for our key combination there.
- * This solution is not as clean as using Custom Keybinds, and doesn't allow us to change keybinds in-game.
- * But it's a good alternative for macOS users until Custom Keybinds is available on macOS.
- */
-#include <Geode/modify/CCKeyboardDispatcher.hpp>
-class $modify(ImGuiKeybindHook, cocos2d::CCKeyboardDispatcher) {
-    bool dispatchKeyboardMSG(cocos2d::enumKeyCodes key, bool isKeyDown, bool isKeyRepeat) {
-        if (key == cocos2d::enumKeyCodes::KEY_P && this->getAltKeyPressed()) {
-            ImGuiCocos::get().toggle();
-        }
-        return CCKeyboardDispatcher::dispatchKeyboardMSG(key, isKeyDown, isKeyRepeat);
-    }
-};
-#endif
