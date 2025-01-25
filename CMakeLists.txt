@@ -20,7 +20,7 @@ endif()
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 # Include Dear ImGui library
-CPMAddPackage("gh:matcool/gd-imgui-cocos#b085ce4")
+CPMAddPackage("gh:matcool/gd-imgui-cocos#0207a36")
 target_link_libraries(${PROJECT_NAME} imgui-cocos)
 
 setup_geode_mod(${PROJECT_NAME})
