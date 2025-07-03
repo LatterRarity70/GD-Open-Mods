@@ -30,7 +30,10 @@ jobs:
           comment-id: ${{ github.event.comment.id }}
           edit-mode: replace
           body: |
-            ${{ github.event.comment.body }} **- Invalid format. Use user/repo.**
+              ```json
+              "${{ github.event.comment.body }}" invalid format, use user/repo!
+              ```
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -51,7 +54,9 @@ jobs:
           comment-id: ${{ github.event.comment.id }}
           edit-mode: replace
           body: |
-            ${{ github.event.comment.body }} **- Repository not found.**
+              ```json
+              "${{ github.event.comment.body }}" repository not found.
+              ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -76,7 +81,9 @@ jobs:
           comment-id: ${{ github.event.comment.id }}
           edit-mode: replace
           body: |
-            ${{ github.event.comment.body }} **- Already listed.**
+              ```json
+              "${{ github.event.comment.body }}" already listed.
+              ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -99,6 +106,8 @@ jobs:
           comment-id: ${{ github.event.comment.id }}
           edit-mode: replace
           body: |
-            ${{ github.event.comment.body }} **- Added.**
+              ```lua
+              "${{ github.event.comment.body }}" added!
+              ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
