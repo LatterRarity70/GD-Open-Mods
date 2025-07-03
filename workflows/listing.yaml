@@ -1,0 +1,53 @@
+name: Handle mod listing comments
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  process_mod_comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if comment matches user/repo
+        id: parse
+        run: |
+          echo "${{ github.event.comment.body }}" | grep -E "^[^/ ]+\/[^/ ]+$" || exit 1
+          echo "::set-output name=repo::$(echo "${{ github.event.comment.body }}" | tr -d '[:space:]')"
+      - name: Verify repository exists
+        id: repo_check
+        run: |
+          if curl -sfI "https://github.com/${{ steps.parse.outputs.repo }}" >/dev/null; then
+            echo "::set-output name=exists::true"
+          else
+            echo "::set-output name=exists::false"
+          fi
+      - name: Handle nonexistent repo
+        if: steps.repo_check.outputs.exists == 'false'
+        run: gh issue comment delete "${{ github.event.comment.id }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout repo
+        if: steps.repo_check.outputs.exists == 'true'
+        uses: actions/checkout@v4
+      - name: Append to list
+        if: steps.repo_check.outputs.exists == 'true'
+        run: |
+          echo "${{ steps.parse.outputs.repo }}" >> _list.txt
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add _list.txt
+          git commit -m "Add ${{ steps.parse.outputs.repo }} to list"
+          git push
+      - name: Mark comment as added
+        if: steps.repo_check.outputs.exists == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ github.event.comment.id }}
+          body: |
+            ${{ github.event.comment.body }} ** - Added.**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
