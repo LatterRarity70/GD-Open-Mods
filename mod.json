@@ -1,22 +1,20 @@
 {
-	"geode": "$GEODE_VERSION",
+	"geode": "4.6.2",
 	"gd": {
 		"win": "2.2074",
 		"android": "2.2074",
 		"mac": "2.2074",
 		"ios": "2.2074"
 	},
-	"id": "$MOD_ID",
-	"name": "$MOD_NAME",
-	"version": "$MOD_VERSION",
-	"developer": "$MOD_DEVELOPER",
-	"description": "$MOD_DESCRIPTION",
-	"dependencies": {
-		"geode.custom-keybinds": ">=v1.10.2"
+	"id": "user95401.echo-mods",
+	"name": "Ae.. EchoMods! ~",
+	"version": "0.0.0-beta.1",
+	"developer": "user95401",
+	"description": "Geode SDK mod for Geometry Dash that features catalogue of all mods ever exists on github.",
+	"links": {
+		"community": "https://discord.gg/6SxAbk3bTA",
+		"homepage": "https://t.me/user95401_channel",
+		"source": "https://github.com/user95401/Account-Switcher"
 	},
-	"resources": {
-		"files": [
-			"resources/*.ttf"
-		]
-	}
+	"tags": [ "interface", "utility" ]
 }
