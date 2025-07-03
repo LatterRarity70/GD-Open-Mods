@@ -28,8 +28,9 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
           body: |
-            **- Invalid format. Use user/repo.**
+            ${{ github.event.comment.body }} **- Invalid format. Use user/repo.**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -48,8 +49,9 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
           body: |
-            **- Repository not found.**
+            ${{ github.event.comment.body }} **- Repository not found.**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -72,8 +74,9 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
           body: |
-            **- Already listed.**
+            ${{ github.event.comment.body }} **- Already listed.**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -94,7 +97,8 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
           body: |
-            **- Added.**
+            ${{ github.event.comment.body }} **- Added.**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
