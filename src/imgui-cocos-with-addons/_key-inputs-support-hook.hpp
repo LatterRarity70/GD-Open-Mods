@@ -16,7 +16,7 @@ class $modify(CCKeyboardDispatcherImGui, cocos2d::CCKeyboardDispatcher) {
 			AddKeyEventArrow(Down);
 			AddKeyEventArrow(Up);
 			AddKeyEvent(Space);
-			AddKeyEvent(Backspace);//0x09,
+			//AddKeyEvent(Backspace);//0x09,
 			AddKeyEvent(Tab);//0x09,
 			AddKeyEvent(Enter);//0x0D,
 			AddKeyEvent(Pause);//0x13,

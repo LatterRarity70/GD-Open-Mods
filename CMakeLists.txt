@@ -9,6 +9,7 @@ project(Template VERSION 1.0.0)
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
 )
+set_property(TARGET ${PROJECT_NAME} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 include_directories(src)
 
 if (NOT DEFINED ENV{GEODE_SDK})
@@ -20,6 +21,7 @@ endif()
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 # Include Dear ImGui library
+set(IMGUI_VERSION "v1.92.0") 
 CPMAddPackage("gh:matcool/gd-imgui-cocos#653e533") # specify a commit!
 target_link_libraries(${PROJECT_NAME} imgui-cocos)
 
