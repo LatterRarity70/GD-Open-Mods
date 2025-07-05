@@ -64,7 +64,7 @@ void Browser(bool reload = false) {
 			}
 		);
 		auto req = web::WebRequest();
-		listener->setFilter(req.get("https://raw.githubusercontent.com/user95401/GD-EchoMods/refs/heads/main/_list.txt"));
+		listener->setFilter(req.get("https://raw.githubusercontent.com/user95401/GD-Open-Mods/refs/heads/main/_list.txt"));
 		
 		return;
 	};

@@ -6,15 +6,15 @@
 		"mac": "2.2074",
 		"ios": "2.2074"
 	},
-	"id": "user95401.echo-mods",
-	"name": "Ae.. EchoMods! ~",
-	"version": "0.0.0-beta.2",
+	"id": "user95401.open-mods",
+	"name": "Ae.. Open Mods! ~",
+	"version": "0.0.0-beta.1",
 	"developer": "user95401",
 	"description": "Geode SDK mod for Geometry Dash that features catalogue of all mods ever exists on github.",
 	"links": {
 		"community": "https://discord.gg/6SxAbk3bTA",
 		"homepage": "https://t.me/user95401_channel",
-		"source": "https://github.com/user95401/Account-Switcher"
+		"source": "https://github.com/user95401/GD-Open-Mods"
 	},
 	"tags": [ "interface", "utility" ],
 	"resources": {
