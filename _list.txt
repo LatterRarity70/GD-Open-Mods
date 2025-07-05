@@ -7,3 +7,4 @@ calvinzosa/geode_menu-video-bg
 user95401/Umbral-Abyss
 Kventarix/Random-Dialog
 user95401/Dialog-Trigger
+user95401/Easing-preview
