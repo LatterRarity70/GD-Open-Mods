@@ -63,30 +63,60 @@ void Browser(bool reload = false) {
 				}
 			}
 		);
-		auto req = web::WebRequest();
+		auto req = web::WebRequest().certVerification(false);
 		listener->setFilter(req.get("https://raw.githubusercontent.com/user95401/GD-Open-Mods/refs/heads/main/_list.txt"));
 		
 		return;
 	};
 
+	ImGui::BeginChild("search-inp-box", { 0, 0 }, ImGuiChildFlags_FrameStyle | ImGuiChildFlags_AutoResizeY);
+	static std::string SEARCH_FILTER;
+	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+	ImGui::InputTextWithHint("##search-inp", "Search filter...\t", &SEARCH_FILTER);
+	ImGui::EndChild();
+
+	static std::string SEARCH_NEEDLES;
+	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+	ImGui::TextWrapped("%s", SEARCH_FILTER.size() ? SEARCH_NEEDLES.c_str() : "No filter keywords...");
+
 	for (auto repo_gdstr : string::split(REPO_LIST, "\n")) {
 		auto repo = std::string(repo_gdstr.c_str()); //i never will trust gd::string
 		if (repo.size() < 2) continue;
 
+		if (SEARCH_FILTER.size()) {
+			auto q = string::toLower(SEARCH_FILTER);
+			auto haystack = string::toLower(repo + LOADED_REPOS[repo].dump());
+			auto needles = string::split(q, " "); //split q for space
+			for (auto a : { ",", "+", "_", "-", "/" }) { //and more...
+				auto splitten = string::split(q, a);
+				if (string::contains(q, a)) needles.insert(needles.end(), splitten.begin(), splitten.end());
+			}
+			SEARCH_NEEDLES = fmt::format("Keywords: {}", string::join(needles, ", "));
+			if (not string::containsAll(haystack, needles)) continue;
+		}
+
 		if (not REPO_WAS_LOADED[repo]) {
 			REPO_WAS_LOADED[repo] = true;
+
+			log::debug("{}:{}", __LINE__, repo);
 
 			auto listener = new EventListener<web::WebTask>();
 			listener->bind(
 				[=](web::WebTask::Event* e) mutable {
 					if (web::WebResponse* res = e->getValue()) {
 						LOADED_REPOS[repo] = res->json().unwrapOrDefault();
+
+						auto& description = LOADED_REPOS[repo]["description"];
+						if (not description.isString()) description = "No description provided.";
+
 						if (listener) delete listener;
 					}
 				}
 			);
-			auto req = web::WebRequest();
-			listener->setFilter(req.get("https://ungh.cc/repos/" + repo));
+			auto req = web::WebRequest().certVerification(false);
+
+			log::debug("{}:{}", __LINE__, repo);
+			listener->setFilter(req.get("https://ungh-exp.vercel.app/repos/" + repo));
 
 			return;
 		};
@@ -97,7 +127,7 @@ void Browser(bool reload = false) {
 			flags |= ImGuiChildFlags_Borders;
 			flags |= ImGui::IsMouseDown(ImGuiMouseButton_Left) ? ImGuiChildFlags_None : ImGuiChildFlags_FrameStyle;
 			if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-				INFO_REPO = LOADED_REPOS[repo]["repo"];
+				INFO_REPO = LOADED_REPOS[repo];
 				INFO_MD_BODY = "Loading...";
 				
 				auto listener = new EventListener<web::WebTask>();
@@ -112,21 +142,37 @@ void Browser(bool reload = false) {
 						}
 					}
 				);
-				auto req = web::WebRequest();
-				listener->setFilter(req.get("https://ungh.cc/repos/" + repo + "/readme"));
+				auto req = web::WebRequest().certVerification(false);
+				listener->setFilter(req.get("https://ungh-exp.vercel.app/repos/" + repo + "/readme"));
 			}
 		}
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().WindowPadding);
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.f);
 		ImGui::BeginChild((repo + " Repo Item").c_str(), {0, 0}, flags);
-		ImGui::PopStyleVar();
-		ImGui::PopStyleVar();
+		ImGui::PopStyleVar(2);
 		{
-			ImGui::Markdown("**" + repo + "**\n" + LOADED_REPOS[repo]["repo"]["description"].asString().unwrapOr("Loading..."));
 			hovered[repo] = ImGui::IsWindowHovered();
+
+			auto title = LOADED_REPOS[repo]["name"].asString().unwrapOr(repo);
+			if (auto slash_spl = string::split(repo, "/"); slash_spl.size() > 1) {
+				ImGui::Markdown("**" + string::replace(slash_spl[1].c_str(), "-", " ") + "**");
+				ImGui::SameLine();
+				ImGui::TextDisabled("by %s", slash_spl[0].c_str());
+			} 
+			else ImGui::Markdown("**" + title + "**");
+
+			ImGui::Markdown(LOADED_REPOS[repo]["description"].asString().unwrapOr("Loading..."));
 		}
 		ImGui::EndChild();
 	}
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGripActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGripHovered));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGrip));
+	if (ImGui::Button("Add Repository", {-1, 0})) {
+		web::openLinkInBrowser("https://github.com/user95401/GD-Open-Mods/issues/1");
+	}
+	ImGui::PopStyleColor(3);
 }
 
 void Favorites(bool reload = false) {
@@ -139,7 +185,7 @@ void Installed(bool reload = false) {
 
 inline static auto LOADED_RELEASES = std::map<std::string, matjson::Value>();
 void RELEASES(bool reload = false) {
-	auto repo = INFO_REPO_KEY_DUMP("repo");
+	auto repo = INFO_REPO_KEY_DUMP("full_name");
 	if (!LOADED_RELEASES.contains(repo)) ImGui::Markdown("Loading...");
 
 	static std::map<std::string, bool> RELEASES_WAS_LOADED;
@@ -152,13 +198,13 @@ void RELEASES(bool reload = false) {
 		listener->bind(
 			[=](web::WebTask::Event* e) mutable {
 				if (web::WebResponse* res = e->getValue()) {
-					LOADED_RELEASES[repo] = res->json().unwrapOrDefault()["releases"];
+					LOADED_RELEASES[repo] = res->json().unwrapOrDefault();
 					if (listener) delete listener;
 				}
 			}
 		);
-		auto req = web::WebRequest();
-		listener->setFilter(req.get("https://ungh.cc/repos/" + repo + "/releases"));
+		auto req = web::WebRequest().certVerification(false);
+		listener->setFilter(req.get("https://ungh-exp.vercel.app/repos/" + repo + "/releases"));
 
 		return;
 	};
@@ -176,19 +222,18 @@ void RELEASES(bool reload = false) {
 
 		ImGui::Markdown(
 			+ "## " + RELEASE_KEY_DUMP("name")
-			+ "\n**" + RELEASE_KEY_DUMP("author")
-			+ "** published at " + IsoToReadable(RELEASE_KEY_DUMP("publishedAt"))
-			+ " with " + RELEASE_KEY_DUMP("tag") + " tag."
+			+ "\n**" + release["author"]["login"].asString().unwrapOr("was")
+			+ "** published at " + IsoToReadable(RELEASE_KEY_DUMP("published_at"))
+			+ " with " + RELEASE_KEY_DUMP("tag_name") + " tag."
 		);
 		ImGui::Separator();
-		ImGui::Markdown(release["markdown"].asString().unwrapOrDefault());
+		ImGui::Markdown(release["body"].asString().unwrapOrDefault());
 		ImGui::Separator();
 
 		for (auto asset : release["assets"]) {
 #define ASSET_KEY_DUMP(key) string::replace(asset[key].dump(), "\"", "")
-			auto filename = std::filesystem::path(ASSET_KEY_DUMP("downloadUrl")).filename();
 
-			if (ImGui::Button(filename.string().c_str())) {
+			if (ImGui::Button(ASSET_KEY_DUMP("name").c_str())) {
 				showDownloadProgress = true;
 				downloadProgress = 0.0f;
 				statusText = "Downloading...";
@@ -197,28 +242,27 @@ void RELEASES(bool reload = false) {
 				listener->bind(
 					[=](web::WebTask::Event* e) mutable {
 						if (web::WebResponse* res = e->getValue()) {
-							res->into(dirs::getModsDir() / filename);
+							res->into(dirs::getModsDir() / ASSET_KEY_DUMP("name"));
 							showDownloadProgress = false;
 							if (listener) delete listener;
 						}
 						else if (web::WebProgress* p = e->getProgress()) {
 							showDownloadProgress = true;
 							downloadProgress = p->downloadProgress().value_or(0.f) / 100.f;
-							statusText = fmt::format("Downloading {}: {:.1f}%", filename, downloadProgress * 100.f);
+							statusText = fmt::format("Downloading {}: {:.1f}%", ASSET_KEY_DUMP("name"), downloadProgress * 100.f);
 						}
 					}
 				);
-				auto req = web::WebRequest();
-				listener->setFilter(req.get(ASSET_KEY_DUMP("downloadUrl")));
+				auto req = web::WebRequest().certVerification(false);
+				listener->setFilter(req.get(ASSET_KEY_DUMP("browser_download_url")));
 			}
 
 			ImGui::SameLine();
 
-			if (ImGui::BeginChild(("##childf" + ASSET_KEY_DUMP("downloadUrl")).c_str(), {}, ImGuiChildFlags_AutoResizeY)) {
+			if (ImGui::BeginChild(("##childf" + ASSET_KEY_DUMP("browser_download_url")).c_str(), {}, ImGuiChildFlags_AutoResizeY)) {
 				ImGui::Markdown(
 					"| " + FormatFileSize(asset["size"].asInt().unwrapOr(0)) +
-					", " + ASSET_KEY_DUMP("downloadCount") +
-					" downloads, updated at " + IsoToReadable(ASSET_KEY_DUMP("updatedAt"))
+					", " + ASSET_KEY_DUMP("download_count") + " downloads"
 				);
 			}
 			ImGui::EndChild();
@@ -246,7 +290,7 @@ inline void wLoaded() {
             auto RobotoBoldItalic   = geode::Mod::get()->getResourcesDir() / "Roboto-BoldItalic.ttf";
             auto RobotoRegular      = geode::Mod::get()->getResourcesDir() / "Roboto-Regular.ttf";
 
-            auto fsize      = 32.0f;
+            auto fsize      = 46.0f;
             auto hsmltp     = 1.05f;
             auto hsappmltp  = 0.10f;
             ImGui::MDFont_H1 = io.Fonts->AddFontFromFileTTF(RobotoBold.string().c_str(), fsize * (hsmltp + (hsappmltp * 6)));
@@ -430,24 +474,36 @@ inline void wLoaded() {
 
 					ImGui::BeginChild("Top Line", { 0, 0 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
 					{
+
+						auto title = INFO_REPO_KEY_DUMP("full_name");
+						if (auto slash_spl = string::split(title, "/"); slash_spl.size() > 1) {
+							ImGui::PushFont(ImGui::MDFont_H2);
+							ImGui::Text("%s", string::replace(slash_spl[1].c_str(), "-", " ").c_str());
+
+							ImGui::SameLine(0, 0);
+
+							auto hh = ImGui::GetTextLineHeight();
+							ImGui::PopFont();
+							ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (hh - ImGui::GetTextLineHeight()) / 2);
+
+							ImGui::TextDisabled(" by %s", slash_spl[0].c_str());
+							ImGui::Separator();
+						}
+						else ImGui::Markdown("## " + title);
+
+						ImGui::Markdown(INFO_REPO["description"].asString().unwrapOr("Open some repo first :3"));
+
 						ImGui::Markdown(
-							+ "## " + INFO_REPO["name"].asString().unwrapOr("...")
-							+ "\n" + INFO_REPO["description"].asString().unwrapOr("...")
-						);
-						ImGui::Separator();
-						ImGui::Markdown(
-							+ "**Stars:** " + INFO_REPO_KEY_DUMP("stars")
-							+ " | **Watchers:** " + INFO_REPO_KEY_DUMP("watchers")
+							+ "**Stars:** " + INFO_REPO_KEY_DUMP("stargazers_count")
+							+ " | **Watchers:** " + INFO_REPO_KEY_DUMP("watchers_count")
 							+ " |  **Forks:** " + INFO_REPO_KEY_DUMP("forks")
-							+ " | " + IsoToReadable(INFO_REPO_KEY_DUMP("createdAt"))
-							+ " (upd: " + IsoToReadable(INFO_REPO_KEY_DUMP("updatedAt")) + ")"
 						);
 					};
 					ImGui::EndChild();
 
 					//
 					ImGui::BeginChild("midbox", 
-						{ 0, ImGui::GetContentRegionAvail().y - ImGui::CalcItemSize({ 0, 52 }, 0, 52).y },
+						{ 0, ImGui::GetContentRegionAvail().y - ImGui::CalcItemSize({ 0, 69 }, 0, 69).y },
 						ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoDecoration
 					); {
 
@@ -456,7 +512,7 @@ inline void wLoaded() {
 							if (ImGui::BeginTabItem("README")) {
 								ImGui::BeginChild("READMEbox", { 0, 0 }, ImGuiChildFlags_FrameStyle);
 
-								ImGui::Markdown(INFO_MD_BODY);
+								ImGui::MDText(INFO_MD_BODY);
 
 								ImGui::EndChild();
 								ImGui::EndTabItem();
@@ -478,13 +534,13 @@ inline void wLoaded() {
 					};
 					ImGui::EndChild();
 
-					ImGui::BeginChild("Bottom Line", { 0, 52 - 4 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
+					ImGui::BeginChild("Bottom Line", { 0, 69 - 4 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
 					{
 						ImGui::Markdown(
-							+"[" + INFO_REPO_KEY_DUMP("repo")
-							+ " - branch: " + INFO_REPO_KEY_DUMP("defaultBranch")
-							+ ", id: " + INFO_REPO_KEY_DUMP("id") + "](https://github.com/" + INFO_REPO_KEY_DUMP("repo") + ")"
+							+"[" + INFO_REPO_KEY_DUMP("full_name") + "](https://github.com/" + INFO_REPO_KEY_DUMP("full_name") + ")"
 						);
+						ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Favorite It").x - ImGui::GetStyle().FramePadding.x * 2);
+						ImGui::SmallButton("Favorite It");
 					};
 					ImGui::EndChild();
                 };
@@ -494,9 +550,7 @@ inline void wLoaded() {
             ImGui::End();
 
             ImGui::ShowMetricsWindow();
-            //ImGui::ShowDemoWindow();
-            //ImGui::ShowDebugLogWindow();
-            //ImGui::ShowStyleEditor();
+            ImGui::ShowStyleEditor();
         }
     );
 }

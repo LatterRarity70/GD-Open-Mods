@@ -1060,6 +1060,86 @@ namespace ImGui {
 
     }
 
+    using namespace geode::prelude;
+
+    class RenderTextureEx : public cocos2d::CCRenderTexture {
+    public:
+        static RenderTextureEx* create(int w, int h) {
+            auto rt = new RenderTextureEx();
+            if (rt->initWithWidthAndHeight(w, h, kCCTexture2DPixelFormat_RGBA8888)) {
+                rt->autorelease();
+                return rt;
+            }
+            CC_SAFE_DELETE(rt);
+            return nullptr;
+        }
+        GLuint getFBO() const { return m_uFBO; }
+    };
+
+    void MDText(const std::string& markdown_) {
+        struct Entry {
+            geode::Ref<geode::MDTextArea> node;
+            geode::Ref < RenderTextureEx> rt;
+        };
+        static std::map<std::string, Entry> created;
+
+        auto& E = created[markdown_];
+        if (!E.node) {
+            E.node = geode::MDTextArea::create(
+                markdown_,
+                { ImGuiCocos::frameToCocos(ImGui::GetContentRegionAvail()).x - 55.f, 10.f }
+            );
+
+            auto layer = E.node->getScrollLayer()->m_contentLayer;
+            auto sz = layer->getContentSize();
+            int w = static_cast<int>(sz.width);
+            int h = static_cast<int>(sz.height);
+
+            E.rt = RenderTextureEx::create(w, h);
+            layer->setPosition(cocos2d::CCPoint{ 0,0 });
+        }
+
+        auto layer = E.node->getScrollLayer()->m_contentLayer;
+        auto rt = E.rt;
+
+        GLboolean tex2d = glIsEnabled(GL_TEXTURE_2D);
+        GLint     prevTex;
+        GLint     prevActiveTex;
+        GLint     blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha;
+        glGetIntegerv(GL_ACTIVE_TEXTURE, &prevActiveTex);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex);
+        glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcRGB);
+        glGetIntegerv(GL_BLEND_DST_RGB, &blendDstRGB);
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
+        glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
+
+        glActiveTexture(GL_TEXTURE0);
+        if (!tex2d) glEnable(GL_TEXTURE_2D);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        rt->beginWithClear(0, 0, 0, 0);
+        layer->visit();
+        rt->end();
+
+        if (!tex2d) glDisable(GL_TEXTURE_2D);
+        glActiveTexture(prevActiveTex);
+        glBindTexture(GL_TEXTURE_2D, prevTex);
+        glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
+
+        auto sprite = rt->getSprite();
+
+        GLuint texID = sprite->getTexture()->getName();
+        int    w = sprite->getTexture()->getPixelsWide();
+        int    h = sprite->getTexture()->getPixelsHigh();
+
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        ImGui::Image((void*)(uintptr_t)texID, ImVec2((float)w, (float)h),
+            ImVec2(0.0f, 1.0f),
+            ImVec2(1.0f, 0.0f)
+        );
+
+    }
+
     inline void Markdown(const std::string& markdown_, MarkdownConfig mdConfig = MarkdownConfig()) {
 
         if (!mdConfig.linkCallback) mdConfig.linkCallback = MDImpl::LinkCallback;
