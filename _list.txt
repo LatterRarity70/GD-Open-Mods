@@ -6,3 +6,14 @@ GDDevTools/devtools-protocol
 calvinzosa/geode_menu-video-bg
 user95401/Umbral-Abyss
 Kventarix/Random-Dialog
+user95401/Dialog-Trigger
+user95401/Easing-preview
+user95401/AnimatedProfiles
+user95401/guwude
+user95401/Geode-Modpacks
+user95401/gdl-geode
+user95401/Unverified-Mods
+user95401/no-geode-ui
+user95401/Editor-Button-Forever
+user95401/Programming-Memes
+user95401/getCString-fix
