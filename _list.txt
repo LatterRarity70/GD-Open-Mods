@@ -11,3 +11,4 @@ user95401/Easing-preview
 user95401/AnimatedProfiles
 user95401/guwude
 user95401/Geode-Modpacks
+user95401/gdl-geode
