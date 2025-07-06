@@ -25,7 +25,7 @@ namespace ImGui {
 
         auto& E = created[node];
         if (!E.node) {
-            E.node = geode::createQuickPopup("fuckyou", "asd", "asd", nullptr, nullptr, false);
+            E.node = node;
 
             auto sz = E.node->getContentSize();
             int w = static_cast<int>(sz.width);
