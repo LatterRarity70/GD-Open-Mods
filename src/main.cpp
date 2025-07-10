@@ -1,6 +1,9 @@
 #include <imgui-cocos-with-addons/include.hpp>
 using namespace geode::prelude;
 
+namespace fs = std::filesystem;
+static std::error_code fs_err;
+
 static auto INFO_MD_BODY = geode::getMod()->getDetails().value_or("xd");
 static auto INFO_REPO = matjson::Value();
 
@@ -41,35 +44,11 @@ std::string FormatFileSize(uint64_t bytes) {
 
 inline static auto REPO_LIST = std::string();
 inline static auto LOADED_REPOS = std::map<std::string, matjson::Value>();
-void Browser(bool reload = false) {
+inline static auto REPO_WAS_LOADED = std::map<std::string, bool>();
 
-	if (reload) REPO_LIST = "";
-	if (reload) LOADED_REPOS.clear();
+void RenderRepoList(std::string list = REPO_LIST) {
 
-	static std::map<std::string, bool> REPO_WAS_LOADED;
-	if (reload) REPO_WAS_LOADED.clear();
-	
-	static bool LIST_WAS_LOADED;
-	if (reload) LIST_WAS_LOADED = false;
-	if (not LIST_WAS_LOADED) {
-		LIST_WAS_LOADED = true;
-
-		auto listener = new EventListener<web::WebTask>();
-		listener->bind(
-			[=](web::WebTask::Event* e) mutable {
-				if (web::WebResponse* res = e->getValue()) {
-					REPO_LIST = res->string().unwrapOr("Uh oh!");
-					if (listener) delete listener;
-				}
-			}
-		);
-		auto req = web::WebRequest().certVerification(false);
-		listener->setFilter(req.get("https://raw.githubusercontent.com/user95401/GD-Open-Mods/refs/heads/main/_list.txt"));
-		
-		return;
-	};
-
-	ImGui::BeginChild("search-inp-box", { 0, 0 }, ImGuiChildFlags_FrameStyle | ImGuiChildFlags_AutoResizeY);
+	ImGui::BeginChild("search-REPO_LISTinp-box", { 0, 0 }, ImGuiChildFlags_FrameStyle | ImGuiChildFlags_AutoResizeY);
 	static std::string SEARCH_FILTER;
 	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 	ImGui::InputTextWithHint("##search-inp", "Search filter...\t", &SEARCH_FILTER);
@@ -79,7 +58,7 @@ void Browser(bool reload = false) {
 	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 	ImGui::TextWrapped("%s", SEARCH_FILTER.size() ? SEARCH_NEEDLES.c_str() : "No filter keywords...");
 
-	for (auto repo_gdstr : string::split(REPO_LIST, "\n")) {
+	for (auto repo_gdstr : string::split(list, "\n")) {
 		auto repo = std::string(repo_gdstr.c_str()); //i never will trust gd::string
 		if (repo.size() < 2) continue;
 
@@ -129,7 +108,7 @@ void Browser(bool reload = false) {
 			if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
 				INFO_REPO = LOADED_REPOS[repo];
 				INFO_MD_BODY = "Loading...";
-				
+
 				auto listener = new EventListener<web::WebTask>();
 				listener->bind(
 					[=](web::WebTask::Event* e) mutable {
@@ -148,7 +127,7 @@ void Browser(bool reload = false) {
 		}
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().WindowPadding);
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.f);
-		ImGui::BeginChild((repo + " Repo Item").c_str(), {0, 0}, flags);
+		ImGui::BeginChild((repo + " Repo Item").c_str(), { 0, 0 }, flags);
 		ImGui::PopStyleVar(2);
 		{
 			hovered[repo] = ImGui::IsWindowHovered();
@@ -158,13 +137,43 @@ void Browser(bool reload = false) {
 				ImGui::Markdown("**" + string::replace(slash_spl[1].c_str(), "-", " ") + "**");
 				ImGui::SameLine();
 				ImGui::TextDisabled("by %s", slash_spl[0].c_str());
-			} 
+			}
 			else ImGui::Markdown("**" + title + "**");
 
 			ImGui::Markdown(LOADED_REPOS[repo]["description"].asString().unwrapOr("Loading..."));
 		}
 		ImGui::EndChild();
 	}
+
+}
+
+void Browser(bool reload = false) {
+
+	if (reload) REPO_LIST = "";
+	if (reload) LOADED_REPOS.clear();
+	if (reload) REPO_WAS_LOADED.clear();
+	
+	static bool LIST_WAS_LOADED;
+	if (reload) LIST_WAS_LOADED = false;
+	if (not LIST_WAS_LOADED) {
+		LIST_WAS_LOADED = true;
+
+		auto listener = new EventListener<web::WebTask>();
+		listener->bind(
+			[=](web::WebTask::Event* e) mutable {
+				if (web::WebResponse* res = e->getValue()) {
+					REPO_LIST = res->string().unwrapOr("Uh oh!");
+					if (listener) delete listener;
+				}
+			}
+		);
+		auto req = web::WebRequest().certVerification(false);
+		listener->setFilter(req.get("https://raw.githubusercontent.com/user95401/GD-Open-Mods/refs/heads/main/_list.txt"));
+		
+		return;
+	};
+
+	RenderRepoList();
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGripActive));
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGripHovered));
@@ -176,11 +185,11 @@ void Browser(bool reload = false) {
 }
 
 void Favorites(bool reload = false) {
-	ImGui::Markdown("# Favorites...");
+	RenderRepoList(getMod()->getSavedValue<std::string>("favorites-list"));
 }
 
 void Installed(bool reload = false) {
-	ImGui::Markdown("# Installed...");
+	RenderRepoList(getMod()->getSavedValue<std::string>("installed-list"));
 }
 
 inline static auto LOADED_RELEASES = std::map<std::string, matjson::Value>();
@@ -220,20 +229,50 @@ void RELEASES(bool reload = false) {
 			{ 0, 0 }, ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding| ImGuiChildFlags_AutoResizeY
 		);
 
-		ImGui::Markdown(
+		ImGui::MDText(
 			+ "## " + RELEASE_KEY_DUMP("name")
 			+ "\n**" + release["author"]["login"].asString().unwrapOr("was")
 			+ "** published at " + IsoToReadable(RELEASE_KEY_DUMP("published_at"))
 			+ " with " + RELEASE_KEY_DUMP("tag_name") + " tag."
 		);
 		ImGui::Separator();
-		ImGui::Markdown(release["body"].asString().unwrapOrDefault());
+		ImGui::MDText(release["body"].asString().unwrapOrDefault());
 		ImGui::Separator();
 
 		for (auto asset : release["assets"]) {
 #define ASSET_KEY_DUMP(key) string::replace(asset[key].dump(), "\"", "")
 
-			if (ImGui::Button(ASSET_KEY_DUMP("name").c_str())) {
+			auto file = ASSET_KEY_DUMP("name");
+			auto path = dirs::getModsDir() / file;
+
+			auto ext = fs::path(file).extension();
+			if (string::containsAny(ext.string(), {".zip", ".apk"})) {
+				path = dirs::getModConfigDir() / "geode.texture-loader" / "packs" / file;
+			}
+
+			auto instl = getMod()->getSavedValue<std::string>("installed-list");
+			auto installed = string::contains(instl, repo);
+
+			ImGui::BeginChild(
+				("##chILD-" + file).c_str(),
+				{ 0, 0 }, ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY
+			);
+
+			auto exists = fs::file_size(path, fs_err) == asset["size"].asInt().unwrapOr(0);
+			if (not exists) ImGui::BeginDisabled();
+			if (ImGui::Checkbox(("##chkb" + file).c_str(), &exists)) {
+				getMod()->setSavedValue(
+					"installed-list",
+					string::replace(instl, repo, "")
+				);
+				fs::remove_all(path, fs_err);
+			};
+			if (not exists) ImGui::EndDisabled();
+
+			ImGui::SameLine();
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() - ImGui::GetStyle().ItemSpacing.x);
+
+			if (ImGui::Button(file.c_str())) {
 				showDownloadProgress = true;
 				downloadProgress = 0.0f;
 				statusText = "Downloading...";
@@ -242,14 +281,20 @@ void RELEASES(bool reload = false) {
 				listener->bind(
 					[=](web::WebTask::Event* e) mutable {
 						if (web::WebResponse* res = e->getValue()) {
-							res->into(dirs::getModsDir() / ASSET_KEY_DUMP("name"));
+							res->into(path);
 							showDownloadProgress = false;
+
+							if (not installed) getMod()->setSavedValue(
+								"installed-list",
+								(instl + "\n" + repo)
+							);
+
 							if (listener) delete listener;
 						}
 						else if (web::WebProgress* p = e->getProgress()) {
 							showDownloadProgress = true;
 							downloadProgress = p->downloadProgress().value_or(0.f) / 100.f;
-							statusText = fmt::format("Downloading {}: {:.1f}%", ASSET_KEY_DUMP("name"), downloadProgress * 100.f);
+							statusText = fmt::format("Downloading {}", ASSET_KEY_DUMP("name"));
 						}
 					}
 				);
@@ -258,13 +303,27 @@ void RELEASES(bool reload = false) {
 			}
 
 			ImGui::SameLine();
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() - ImGui::GetStyle().ItemSpacing.x);
+			
+			ImGui::BeginDisabled();
 
-			if (ImGui::BeginChild(("##childf" + ASSET_KEY_DUMP("browser_download_url")).c_str(), {}, ImGuiChildFlags_AutoResizeY)) {
-				ImGui::Markdown(
-					"| " + FormatFileSize(asset["size"].asInt().unwrapOr(0)) +
-					", " + ASSET_KEY_DUMP("download_count") + " downloads"
-				);
-			}
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			ImGui::InputText(
+				("##emptinp" + file).c_str(), "",
+				ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_ElideLeft
+			);
+
+			auto astinf = FormatFileSize(asset["size"].asInt().unwrapOr(0)) +
+				", " + ASSET_KEY_DUMP("download_count") + " downloads";
+
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			ImGui::InputText(
+				"", &astinf,
+				ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_ElideLeft
+			);
+
+			ImGui::EndDisabled();
+
 			ImGui::EndChild();
 		}
 
@@ -272,11 +331,16 @@ void RELEASES(bool reload = false) {
 	}
 
 	if (showDownloadProgress) {
-		if (ImGui::BeginTooltip()) {
-			ImGui::Text("%s", statusText.c_str());
-			ImGui::ProgressBar(downloadProgress);
+
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+
+		if (ImGui::BeginPopupModal(statusText.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+			ImGui::ProgressBar(downloadProgress, { ImGui::CalcTextSize(statusText.c_str()).x, 0.f});
+			ImGui::EndPopup();
 		}
-		ImGui::EndTooltip();
+
+		if (!ImGui::IsPopupOpen(statusText.c_str())) ImGui::OpenPopup(statusText.c_str());
 	}
 }
 
@@ -315,13 +379,7 @@ inline void wLoaded() {
 
             io.MouseSource = ImGuiMouseSource_TouchScreen;
             io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
-            io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
-
-            io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavNoCaptureKeyboard;
-            io.ConfigNavMoveSetMousePos = true;
-            io.NavActive = true;
-            io.NavVisible = true;
-
+            
 			{
 				// Discord (Dark) style by BttrDrgn from ImThemes
 				ImGuiStyle& style = ImGui::GetStyle();
@@ -415,7 +473,9 @@ inline void wLoaded() {
 
 			ImGui::GetStyle().TabBarBorderSize = 2.0f;
 			ImGui::GetStyle().Colors[ImGuiCol_FrameBg] = ImVec4(0.36f, 0.38f, 0.40f, 0.25f);
+			ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.35f);
 
+			ImGuiCocos::get().setVisible(false);
         }
     ).draw(
         [] {
@@ -431,11 +491,20 @@ inline void wLoaded() {
             ImGui::GetIO().FontGlobalScale = (scale);
 			ImGui::GetIO().DisplayFramebufferScale = { scale_x, scale_y };
 
+			//swipe scroll
+			ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
+			if (ImGui::GetIO().MouseDownDuration[0] > 0.1f) {
+				auto scroll = ccp(ImGui::GetIO().MouseDelta.x, ImGui::GetIO().MouseDelta.y);
+				scroll = scroll / 100.f;
+				ImGui::GetIO().AddMouseWheelEvent(scroll.x, scroll.y);
+			}
+
             ImGui::SetNextWindowPos(ImGui::GetMainViewport()->WorkPos);
             ImGui::SetNextWindowSize(ImGui::GetMainViewport()->WorkSize);
-            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-            if (ImGui::Begin(geode::getMod()->getName().c_str(), nullptr, window_flags))
+			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar;
+			window_flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+			window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+            if (ImGui::Begin(GEODE_MOD_ID, nullptr, window_flags))
             {
 
 				ImGui::BeginChild("Listbox",
@@ -501,9 +570,11 @@ inline void wLoaded() {
 					};
 					ImGui::EndChild();
 
+					auto blineh = 54.f;
+
 					//
 					ImGui::BeginChild("midbox", 
-						{ 0, ImGui::GetContentRegionAvail().y - ImGui::CalcItemSize({ 0, 69 }, 0, 69).y },
+						{ 0, ImGui::GetContentRegionAvail().y - ImGui::CalcItemSize({ 0, blineh }, 0, 69).y },
 						ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoDecoration
 					); {
 
@@ -534,13 +605,25 @@ inline void wLoaded() {
 					};
 					ImGui::EndChild();
 
-					ImGui::BeginChild("Bottom Line", { 0, 69 - 4 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
+					ImGui::BeginChild("Bottom Line", { 0, blineh - 4 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
 					{
 						ImGui::Markdown(
 							+"[" + INFO_REPO_KEY_DUMP("full_name") + "](https://github.com/" + INFO_REPO_KEY_DUMP("full_name") + ")"
 						);
-						ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Favorite It").x - ImGui::GetStyle().FramePadding.x * 2);
-						ImGui::SmallButton("Favorite It");
+						ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Unfavorite It").x - ImGui::GetStyle().FramePadding.x * 2);
+						
+						auto fl = getMod()->getSavedValue<std::string>("favorites-list");
+						auto infav = string::contains(fl, INFO_REPO_KEY_DUMP("full_name"));
+						if (ImGui::SmallButton(infav 
+							? "Unfavorite It" 
+							: "  Favorite It  ")) {
+							getMod()->setSavedValue(
+								"favorites-list", 
+								infav 
+								? string::replace(fl, INFO_REPO_KEY_DUMP("full_name"), "")
+								: (fl + "\n" + INFO_REPO_KEY_DUMP("full_name"))
+							);
+						}
 					};
 					ImGui::EndChild();
                 };
@@ -560,3 +643,27 @@ inline void wDataSaved() {
     ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
 }
 $on_mod(DataSaved) { wDataSaved(); }
+
+
+#include <Geode/modify/CCMenuItemSpriteExtra.hpp>
+class $modify(OpenModsMenuItemActivateHook, CCMenuItemSpriteExtra) {
+	static void openUI() {
+		createQuickPopup("epik closo listnerrr", "", "", "", [](void*, bool) {
+			ImGuiCocos::get().setVisible(false);
+			});
+		ImGuiCocos::get().setVisible(true);
+	}
+	void activate() {
+		if (this->getID() == "mods-add-button") createQuickPopup(
+			"Adding Mods",
+			"Are you want to...",
+			" Install ", 
+			"Download"
+			, [__this = Ref(this)](void*, bool download) {
+				if (download) openUI();
+				else (__this->m_pListener->*__this->m_pfnSelector)(__this);
+			}
+		);
+		else CCMenuItemSpriteExtra::activate();
+	}
+};
