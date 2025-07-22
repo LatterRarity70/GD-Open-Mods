@@ -1,4 +1,5 @@
 #include <imgui-cocos-with-addons/include.hpp>
+#include <regex>
 using namespace geode::prelude;
 
 namespace fs = std::filesystem;
@@ -128,6 +129,7 @@ void RenderRepoList(std::string list = REPO_LIST) {
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().WindowPadding);
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.f);
 		ImGui::BeginChild((repo + " Repo Item").c_str(), { 0, 0 }, flags);
+		ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
 		ImGui::PopStyleVar(2);
 		{
 			hovered[repo] = ImGui::IsWindowHovered();
@@ -135,7 +137,6 @@ void RenderRepoList(std::string list = REPO_LIST) {
 			auto title = LOADED_REPOS[repo]["name"].asString().unwrapOr(repo);
 			if (auto slash_spl = string::split(repo, "/"); slash_spl.size() > 1) {
 				ImGui::Markdown("**" + string::replace(slash_spl[1].c_str(), "-", " ") + "**");
-				ImGui::SameLine();
 				ImGui::TextDisabled("by %s", slash_spl[0].c_str());
 			}
 			else ImGui::Markdown("**" + title + "**");
@@ -281,7 +282,7 @@ void RELEASES(bool reload = false) {
 				listener->bind(
 					[=](web::WebTask::Event* e) mutable {
 						if (web::WebResponse* res = e->getValue()) {
-							res->into(path);
+							if (auto err = res->into(path).err()) log::error("{}", err);
 							showDownloadProgress = false;
 
 							if (not installed) getMod()->setSavedValue(
@@ -344,6 +345,175 @@ void RELEASES(bool reload = false) {
 	}
 }
 
+void MainView() {
+	ImGui::SetNextWindowPos(ImGui::GetMainViewport()->WorkPos);
+	ImGui::SetNextWindowSize(ImGui::GetMainViewport()->WorkSize);
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar;
+	window_flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+	window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 18.f, 18.f });
+	if (ImGui::Begin(GEODE_MOD_ID, nullptr, window_flags))
+	{
+		ImGui::PopStyleVar();
+
+		ImGui::BeginChild("Listbox",
+			{ ImGui::GetContentRegionAvail().x * 0.35f, 0 },
+			ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoDecoration
+		); {
+			ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x); // Fix wrapping after window resize
+			if (ImGui::BeginTabBar("TABS", ImGuiTabBarFlags_DrawSelectedOverline | ImGuiTabBarFlags_Reorderable)) {
+				if (ImGui::BeginTabItem("BROWSER")) {
+					auto active = ImGui::IsItemActivated(); //reload
+					ImGui::BeginChild("Browser""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
+					ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x); // Fix wrapping after window resize
+					Browser(active);
+					ImGui::EndChild();
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("FAVORITES")) {
+					ImGui::BeginChild("Favorites""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
+					ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x); // Fix wrapping after window resize
+					Favorites();
+					ImGui::EndChild();
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("INSTALLED")) {
+					ImGui::BeginChild("Installed""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
+					ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x); // Fix wrapping after window resize
+					Installed();
+					ImGui::EndChild();
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("EXTRA", nullptr)) {
+					ImGui::BeginChild("EXTRA""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
+					ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x); // Fix wrapping after window resize
+
+					auto debug_windows = getMod()->getSavedValue<bool>("debug-windows", false);
+					ImGui::Checkbox("Render debug windows", &debug_windows) ?  getMod()->setSavedValue(
+						"debug-windows", debug_windows
+					) : debug_windows;
+
+					static auto editoropen = false;
+					if (ImGui::Checkbox("Style editor", &editoropen) or ImGui::IsAnyItemActive()) {
+						ImGui::SaveStylesTo(string::pathToString(
+							getMod()->getSaveDir() / ".styles"
+						).c_str());
+					};
+					ImGui::SameLine();
+					if (editoropen) {
+						ImGui::TextDisabled(" <- Turn off to save changes!");
+						ImGui::ShowStyleEditor();
+					}
+					else if (ImGui::TextLink(" [RESET STYLE]")) {
+						file::writeString(getMod()->getSaveDir() / ".styles", "");
+						game::restart(true);
+					};
+
+					ImGui::EndChild();
+					ImGui::EndTabItem();
+				}
+				ImGui::EndTabBar();
+			}
+		};
+		ImGui::EndChild();
+
+		ImGui::SameLine();
+
+		ImGui::BeginChild("Info", {}, ImGuiChildFlags_FrameStyle);
+		{
+
+			ImGui::BeginChild("Top Line", { 0, 0 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
+			{
+
+				auto title = INFO_REPO_KEY_DUMP("full_name");
+				if (auto slash_spl = string::split(title, "/"); slash_spl.size() > 1) {
+					ImGui::PushFont(ImGui::MDFont_H2);
+					ImGui::Text("%s", string::replace(slash_spl[1].c_str(), "-", " ").c_str());
+
+					ImGui::SameLine(0, 0);
+
+					auto hh = ImGui::GetTextLineHeight();
+					ImGui::PopFont();
+					ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (hh - ImGui::GetTextLineHeight()) / 2);
+
+					ImGui::TextDisabled(" by %s", slash_spl[0].c_str());
+					ImGui::Separator();
+				}
+				else ImGui::Markdown("## " + title);
+
+				ImGui::Markdown(INFO_REPO["description"].asString().unwrapOr("Open some repo first :3"));
+
+				ImGui::Markdown(
+					+"**Stars:** " + INFO_REPO_KEY_DUMP("stargazers_count")
+					+ " | **Watchers:** " + INFO_REPO_KEY_DUMP("watchers_count")
+					+ " |  **Forks:** " + INFO_REPO_KEY_DUMP("forks")
+				);
+			};
+			ImGui::EndChild();
+
+			auto blineh = 54.f;
+
+			//
+			ImGui::BeginChild("midbox",
+				{ 0, ImGui::GetContentRegionAvail().y - ImGui::CalcItemSize({ 0, blineh }, 0, 69).y },
+				ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoDecoration
+			); {
+
+				if (ImGui::BeginTabBar("midbox tabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
+
+					if (ImGui::BeginTabItem("README")) {
+						ImGui::BeginChild("READMEbox", { 0, 0 }, ImGuiChildFlags_FrameStyle);
+
+						ImGui::MDText(INFO_MD_BODY);
+
+						ImGui::EndChild();
+						ImGui::EndTabItem();
+					}
+
+					if (ImGui::BeginTabItem("RELEASES")) {
+						auto activated = ImGui::IsItemActivated();
+						ImGui::BeginChild("RELEASESbox", { 0, 0 }, ImGuiChildFlags_FrameStyle);
+
+						RELEASES(activated);
+
+						ImGui::EndChild();
+						ImGui::EndTabItem();
+					}
+
+					ImGui::EndTabBar();
+				}
+
+			};
+			ImGui::EndChild();
+
+			ImGui::BeginChild("Bottom Line", { 0, blineh - 4 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
+			{
+				ImGui::Markdown(
+					+"[" + INFO_REPO_KEY_DUMP("full_name") + "](https://github.com/" + INFO_REPO_KEY_DUMP("full_name") + ")"
+				);
+				ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Unfavorite It").x - ImGui::GetStyle().FramePadding.x * 2);
+
+				auto fl = getMod()->getSavedValue<std::string>("favorites-list");
+				auto infav = string::contains(fl, INFO_REPO_KEY_DUMP("full_name"));
+				if (ImGui::SmallButton(infav
+					? "Unfavorite It"
+					: "  Favorite It  ")) {
+					getMod()->setSavedValue(
+						"favorites-list",
+						infav
+						? string::replace(fl, INFO_REPO_KEY_DUMP("full_name"), "")
+						: (fl + "\n" + INFO_REPO_KEY_DUMP("full_name"))
+					);
+				}
+			};
+			ImGui::EndChild();
+		};
+		ImGui::EndChild();
+
+	}
+	ImGui::End();
+}
+
 inline void wLoaded() {
     ImGuiCocos::get().setup(
         [] {
@@ -354,7 +524,7 @@ inline void wLoaded() {
             auto RobotoBoldItalic   = geode::Mod::get()->getResourcesDir() / "Roboto-BoldItalic.ttf";
             auto RobotoRegular      = geode::Mod::get()->getResourcesDir() / "Roboto-Regular.ttf";
 
-            auto fsize      = 46.0f;
+            auto fsize      = 36.0f;
             auto hsmltp     = 1.05f;
             auto hsappmltp  = 0.10f;
             ImGui::MDFont_H1 = io.Fonts->AddFontFromFileTTF(RobotoBold.string().c_str(), fsize * (hsmltp + (hsappmltp * 6)));
@@ -377,7 +547,6 @@ inline void wLoaded() {
 
             io.ConfigWindowsResizeFromEdges = true;
 
-            io.MouseSource = ImGuiMouseSource_TouchScreen;
             io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
             
 			{
@@ -475,6 +644,10 @@ inline void wLoaded() {
 			ImGui::GetStyle().Colors[ImGuiCol_FrameBg] = ImVec4(0.36f, 0.38f, 0.40f, 0.25f);
 			ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.35f);
 
+			ImGui::LoadStyleFrom(
+				string::pathToString(getMod()->getSaveDir() / ".styles").c_str()
+			);
+
 			ImGuiCocos::get().setVisible(false);
         }
     ).draw(
@@ -491,6 +664,8 @@ inline void wLoaded() {
             ImGui::GetIO().FontGlobalScale = (scale);
 			ImGui::GetIO().DisplayFramebufferScale = { scale_x, scale_y };
 
+			ImGui::GetIO().MouseSource = ImGuiMouseSource_TouchScreen;
+
 			//swipe scroll
 			ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 			if (ImGui::GetIO().MouseDownDuration[0] > 0.1f) {
@@ -499,143 +674,105 @@ inline void wLoaded() {
 				ImGui::GetIO().AddMouseWheelEvent(scroll.x, scroll.y);
 			}
 
-            ImGui::SetNextWindowPos(ImGui::GetMainViewport()->WorkPos);
-            ImGui::SetNextWindowSize(ImGui::GetMainViewport()->WorkSize);
-			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar;
-			window_flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-			window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-            if (ImGui::Begin(GEODE_MOD_ID, nullptr, window_flags))
-            {
+			MainView();
 
-				ImGui::BeginChild("Listbox",
-					{ ImGui::GetContentRegionAvail().x * 0.35f, 0 },
-					ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoDecoration
-				); {
-					if (ImGui::BeginTabBar("Tabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
-						if (ImGui::BeginTabItem("Browser")) {
-							auto activated = ImGui::IsItemActivated();
-							ImGui::BeginChild("Browser""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
-							Browser(activated);
-							ImGui::EndChild();
-							ImGui::EndTabItem();
+			if (getMod()->getSavedValue<bool>("debug-windows", false)) {
+				ImGui::ShowMetricsWindow();
+			}
+
+			// ime fuckery for mobile
+			if (GEODE_DESKTOP(false and) true) if (ImGui::IsMouseReleased(0)) {
+				static Ref<TextInput> inpNodeRef;
+				if (!inpNodeRef) {
+					inpNodeRef = TextInput::create(100.f, "xd", "geode.loader/mdFont.fnt");
+					inpNodeRef->getInputNode()->m_allowedChars = " !\"#$ % &'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+					inpNodeRef->setCallback(
+						[](const std::string& str) {
+							ImGui::GetIO().AddKeyEvent(ImGuiMod_Ctrl, true);
+							ImGui::GetIO().AddKeyEvent(ImGuiKey_A, true);
+							ImGui::GetIO().AddKeyEvent(ImGuiKey_A, false);
+							ImGui::GetIO().AddKeyEvent(ImGuiMod_Ctrl, false);
+							ImGui::GetIO().AddKeyEvent(ImGuiKey_Backspace, true);
+							ImGui::GetIO().AddKeyEvent(ImGuiKey_Backspace, false);
+							ImGui::GetIO().AddInputCharactersUTF8(str.c_str());
+							auto curPos = inpNodeRef->getInputNode()->m_textField->m_uCursorPos;
+							if (curPos != -1) { //-1 is the cursor at the end
+								for (auto a : str) {
+									ImGui::GetIO().AddKeyEvent(ImGuiKey_LeftArrow, true);
+									ImGui::GetIO().AddKeyEvent(ImGuiKey_LeftArrow, false);
+								}
+								for (auto c = 0; c < curPos; ++c) {
+									ImGui::GetIO().AddKeyEvent(ImGuiKey_RightArrow, true);
+									ImGui::GetIO().AddKeyEvent(ImGuiKey_RightArrow, false);
+								}
+							}
 						}
-						if (ImGui::BeginTabItem("Favorites")) {
-							ImGui::BeginChild("Favorites""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
-							Favorites();
-							ImGui::EndChild();
-							ImGui::EndTabItem();
+					);
+					log::info("Created text input node for ImGui: {}", inpNodeRef);
+				}
+				if (inpNodeRef) {
+					if (ImGui::GetIO().WantTextInput) queueInMainThread([] {
+						ImGuiInputTextState& State = GImGui->InputTextState;
+						static int imguicurpos_onclick;
+						imguicurpos_onclick = State.GetCursorPos();
+
+						if (State.TextLen) {
+							inpNodeRef->setString(std::string(State.TextA.Data, State.TextLen));
+
+#ifndef GEODE_IS_IOS // CCIMEDispatcher::sharedDispatcher() = imac 0x4a89a0, m1 0x411d04;
+							for (auto c : inpNodeRef->getString()) {
+								CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("a", 1, KEY_Left);
+							}
+							for (auto c = 0; c < imguicurpos_onclick; ++c) {
+								CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("a", 1, KEY_Right);
+							}
+#else
+							inpNodeRef->setString("");
+#endif
+
+							inpNodeRef->focus();
+							inpNodeRef->getInputNode()->onClickTrackNode(true);
+
+							//inpNodeRef->setPosition(CCScene::get()->getContentSize() / 2.f);
+							//inpNodeRef->removeFromParentAndCleanup(false);
+							//CCScene::get()->addChild(inpNodeRef);
 						}
-						if (ImGui::BeginTabItem("Installed")) {
-							ImGui::BeginChild("Installed""box", { 0, 0 }, ImGuiChildFlags_FrameStyle);
-							Installed();
-							ImGui::EndChild();
-							ImGui::EndTabItem();
-						}
-						ImGui::EndTabBar();
+						});
+					else {
+						inpNodeRef->defocus();
+						inpNodeRef->getInputNode()->onClickTrackNode(false);
 					}
-                };
-                ImGui::EndChild();
-
-                ImGui::SameLine();
-																							
-				ImGui::BeginChild("Info", {}, ImGuiChildFlags_FrameStyle);
-                {
-
-					ImGui::BeginChild("Top Line", { 0, 0 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
-					{
-
-						auto title = INFO_REPO_KEY_DUMP("full_name");
-						if (auto slash_spl = string::split(title, "/"); slash_spl.size() > 1) {
-							ImGui::PushFont(ImGui::MDFont_H2);
-							ImGui::Text("%s", string::replace(slash_spl[1].c_str(), "-", " ").c_str());
-
-							ImGui::SameLine(0, 0);
-
-							auto hh = ImGui::GetTextLineHeight();
-							ImGui::PopFont();
-							ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (hh - ImGui::GetTextLineHeight()) / 2);
-
-							ImGui::TextDisabled(" by %s", slash_spl[0].c_str());
-							ImGui::Separator();
-						}
-						else ImGui::Markdown("## " + title);
-
-						ImGui::Markdown(INFO_REPO["description"].asString().unwrapOr("Open some repo first :3"));
-
-						ImGui::Markdown(
-							+ "**Stars:** " + INFO_REPO_KEY_DUMP("stargazers_count")
-							+ " | **Watchers:** " + INFO_REPO_KEY_DUMP("watchers_count")
-							+ " |  **Forks:** " + INFO_REPO_KEY_DUMP("forks")
-						);
-					};
-					ImGui::EndChild();
-
-					auto blineh = 54.f;
-
-					//
-					ImGui::BeginChild("midbox", 
-						{ 0, ImGui::GetContentRegionAvail().y - ImGui::CalcItemSize({ 0, blineh }, 0, 69).y },
-						ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoDecoration
-					); {
-
-						if (ImGui::BeginTabBar("midbox tabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
-
-							if (ImGui::BeginTabItem("README")) {
-								ImGui::BeginChild("READMEbox", { 0, 0 }, ImGuiChildFlags_FrameStyle);
-
-								ImGui::MDText(INFO_MD_BODY);
-
-								ImGui::EndChild();
-								ImGui::EndTabItem();
-							}
-
-							if (ImGui::BeginTabItem("RELEASES")) {
-								auto activated = ImGui::IsItemActivated();
-								ImGui::BeginChild("RELEASESbox", { 0, 0 }, ImGuiChildFlags_FrameStyle);
-
-								RELEASES(activated);
-
-								ImGui::EndChild();
-								ImGui::EndTabItem();
-							}
-
-							ImGui::EndTabBar();
-						}
-
-					};
-					ImGui::EndChild();
-
-					ImGui::BeginChild("Bottom Line", { 0, blineh - 4 }, ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
-					{
-						ImGui::Markdown(
-							+"[" + INFO_REPO_KEY_DUMP("full_name") + "](https://github.com/" + INFO_REPO_KEY_DUMP("full_name") + ")"
-						);
-						ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Unfavorite It").x - ImGui::GetStyle().FramePadding.x * 2);
-						
-						auto fl = getMod()->getSavedValue<std::string>("favorites-list");
-						auto infav = string::contains(fl, INFO_REPO_KEY_DUMP("full_name"));
-						if (ImGui::SmallButton(infav 
-							? "Unfavorite It" 
-							: "  Favorite It  ")) {
-							getMod()->setSavedValue(
-								"favorites-list", 
-								infav 
-								? string::replace(fl, INFO_REPO_KEY_DUMP("full_name"), "")
-								: (fl + "\n" + INFO_REPO_KEY_DUMP("full_name"))
-							);
-						}
-					};
-					ImGui::EndChild();
-                };
-                ImGui::EndChild();
-
-            }
-            ImGui::End();
-
-            ImGui::ShowMetricsWindow();
-            ImGui::ShowStyleEditor();
+				}
+			}
         }
     );
+
+	auto list = getMod()->getSavedValue<std::string>("installed-list");
+	for (auto mod : Loader::get()->getAllMods()) {
+		auto source_url = mod->getMetadata().getLinks().getSourceURL().value_or("");
+
+		auto repo = source_url;
+
+		std::regex pattern(
+			"(?:https?:\\/\\/)?(?:www\\.)?github\\.com\\/"
+			"([a-zA-Z0-9_-]+)"
+			"\\/"
+			"([a-zA-Z0-9_-]+)"
+			"(?:\\.git|\\/)?",
+			std::regex_constants::icase
+		);
+		std::smatch matches;
+		if (std::regex_search(repo, matches, pattern)) {
+			if (matches.size() >= 3) {
+				repo = matches[1].str() + "/" + matches[2].str();
+			}
+		}
+
+		if (!repo.empty() and list.find(repo) == std::string::npos) {
+			list += "\n" + repo;
+		};
+	}
+	getMod()->setSavedValue("installed-list", list);
 }
 $on_mod(Loaded) { wLoaded(); }
 

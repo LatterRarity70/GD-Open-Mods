@@ -74,3 +74,6 @@ class $modify(CCKeyboardDispatcherImGui, cocos2d::CCKeyboardDispatcher) {
 		return CCKeyboardDispatcher::dispatchKeyboardMSG(key, down, arr);
 	}
 };
+#undef AddKeyEvent
+#undef AddKeyModEvent
+#undef AddKeyEventArrow
