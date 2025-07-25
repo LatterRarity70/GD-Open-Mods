@@ -664,8 +664,6 @@ inline void wLoaded() {
             ImGui::GetIO().FontGlobalScale = (scale);
 			ImGui::GetIO().DisplayFramebufferScale = { scale_x, scale_y };
 
-			ImGui::GetIO().MouseSource = ImGuiMouseSource_TouchScreen;
-
 			//swipe scroll
 			ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 			if (ImGui::GetIO().MouseDownDuration[0] > 0.1f) {
@@ -674,7 +672,11 @@ inline void wLoaded() {
 				ImGui::GetIO().AddMouseWheelEvent(scroll.x, scroll.y);
 			}
 
+			ImGui::GetIO().MouseSource = ImGuiMouseSource_TouchScreen;
+
 			MainView();
+
+			ImGui::GetIO().MouseSource = ImGuiMouseSource_TouchScreen;
 
 			if (getMod()->getSavedValue<bool>("debug-windows", false)) {
 				ImGui::ShowMetricsWindow();
@@ -695,40 +697,14 @@ inline void wLoaded() {
 							ImGui::GetIO().AddKeyEvent(ImGuiKey_Backspace, true);
 							ImGui::GetIO().AddKeyEvent(ImGuiKey_Backspace, false);
 							ImGui::GetIO().AddInputCharactersUTF8(str.c_str());
-							auto curPos = inpNodeRef->getInputNode()->m_textField->m_uCursorPos;
-							if (curPos != -1) { //-1 is the cursor at the end
-								for (auto a : str) {
-									ImGui::GetIO().AddKeyEvent(ImGuiKey_LeftArrow, true);
-									ImGui::GetIO().AddKeyEvent(ImGuiKey_LeftArrow, false);
-								}
-								for (auto c = 0; c < curPos; ++c) {
-									ImGui::GetIO().AddKeyEvent(ImGuiKey_RightArrow, true);
-									ImGui::GetIO().AddKeyEvent(ImGuiKey_RightArrow, false);
-								}
-							}
 						}
 					);
 					log::info("Created text input node for ImGui: {}", inpNodeRef);
 				}
 				if (inpNodeRef) {
 					if (ImGui::GetIO().WantTextInput) queueInMainThread([] {
-						ImGuiInputTextState& State = GImGui->InputTextState;
-						static int imguicurpos_onclick;
-						imguicurpos_onclick = State.GetCursorPos();
 
-						if (State.TextLen) {
-							inpNodeRef->setString(std::string(State.TextA.Data, State.TextLen));
-
-#ifndef GEODE_IS_IOS // CCIMEDispatcher::sharedDispatcher() = imac 0x4a89a0, m1 0x411d04;
-							for (auto c : inpNodeRef->getString()) {
-								CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("a", 1, KEY_Left);
-							}
-							for (auto c = 0; c < imguicurpos_onclick; ++c) {
-								CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("a", 1, KEY_Right);
-							}
-#else
 							inpNodeRef->setString("");
-#endif
 
 							inpNodeRef->focus();
 							inpNodeRef->getInputNode()->onClickTrackNode(true);
@@ -736,7 +712,6 @@ inline void wLoaded() {
 							//inpNodeRef->setPosition(CCScene::get()->getContentSize() / 2.f);
 							//inpNodeRef->removeFromParentAndCleanup(false);
 							//CCScene::get()->addChild(inpNodeRef);
-						}
 						});
 					else {
 						inpNodeRef->defocus();
@@ -787,7 +762,7 @@ class $modify(OpenModsMenuItemActivateHook, CCMenuItemSpriteExtra) {
 	static void openUI() {
 		createQuickPopup("epik closo listnerrr", "", "", "", [](void*, bool) {
 			ImGuiCocos::get().setVisible(false);
-			});
+			})->setScale(0.f);
 		ImGuiCocos::get().setVisible(true);
 	}
 	void activate() {
