@@ -26,3 +26,4 @@ user95401/geode-game-objects-factory
 oki333ed/All-Visible
 oki333ed/PauseRestored
 user95401/HappyTextures
+Kventarix/Crash-is-Button
