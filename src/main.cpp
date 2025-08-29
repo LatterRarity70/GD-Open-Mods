@@ -169,7 +169,7 @@ void Browser(bool reload = false) {
 			}
 		);
 		auto req = web::WebRequest().certVerification(false);
-		listener->setFilter(req.get("https://raw.githubusercontent.com/user95401/GD-Open-Mods/refs/heads/main/_list.txt"));
+		listener->setFilter(req.get("https://raw.githubusercontent.com/LatterRarity70/GD-Open-Mods/refs/heads/main/_list.txt"));
 		
 		return;
 	};
@@ -180,7 +180,7 @@ void Browser(bool reload = false) {
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGripHovered));
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_ResizeGrip));
 	if (ImGui::Button("Add Repository", {-1, 0})) {
-		web::openLinkInBrowser("https://github.com/user95401/GD-Open-Mods/issues/1");
+		web::openLinkInBrowser("https://github.com/LatterRarity70/GD-Open-Mods/issues/1#comment-composer-heading");
 	}
 	ImGui::PopStyleColor(3);
 }
@@ -267,6 +267,7 @@ void RELEASES(bool reload = false) {
 					string::replace(instl, repo, "")
 				);
 				fs::remove_all(path, fs_err);
+				getMod()->getSetting("req-restart")->reset();
 			};
 			if (not exists) ImGui::EndDisabled();
 
@@ -289,6 +290,8 @@ void RELEASES(bool reload = false) {
 								"installed-list",
 								(instl + "\n" + repo)
 							);
+
+							getMod()->getSetting("req-restart")->reset();
 
 							if (listener) delete listener;
 						}
