@@ -25,3 +25,8 @@ LatterRarity70/geode-sprite-frames-unity
 LatterRarity70/geode-game-objects-factory
 oki333ed/All-Visible
 oki333ed/PauseRestored
+user95401/HappyTextures
+Kventarix/Crash-is-Button
+LatterRarity70/Paperdays
+LatterRarity70/Save-on-Crash-Handler
+LatterRarity70/Edit-Account-ID
