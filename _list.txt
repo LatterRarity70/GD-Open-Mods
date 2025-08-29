@@ -28,3 +28,4 @@ oki333ed/PauseRestored
 user95401/HappyTextures
 Kventarix/Crash-is-Button
 LatterRarity70/Paperdays
+LatterRarity70/Save-on-Crash-Handler
