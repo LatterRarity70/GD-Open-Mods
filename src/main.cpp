@@ -576,7 +576,7 @@ inline void wLoaded() {
 				style.CellPadding = ImVec2(4.0f, 2.0f);
 				style.IndentSpacing = 21.0f;
 				style.ColumnsMinSpacing = 6.0f;
-				style.ScrollbarSize = 14.0f;
+				style.ScrollbarSize = 24.0f;
 				style.ScrollbarRounding = 0.0f;
 				style.GrabMinSize = 10.0f;
 				style.GrabRounding = 0.0f;
@@ -643,8 +643,11 @@ inline void wLoaded() {
 			
 			}
 
+			ImGui::GetStyle().ScrollbarSize = 24.0f;
 			ImGui::GetStyle().TabBarBorderSize = 2.0f;
+			ImGui::GetStyle().TouchExtraPadding = { 10.f, 10.f };
 			ImGui::GetStyle().Colors[ImGuiCol_FrameBg] = ImVec4(0.36f, 0.38f, 0.40f, 0.25f);
+			ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.35f);
 			ImGui::GetStyle().Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.35f);
 
 			ImGui::LoadStyleFrom(
@@ -667,19 +670,22 @@ inline void wLoaded() {
             ImGui::GetIO().FontGlobalScale = (scale);
 			ImGui::GetIO().DisplayFramebufferScale = { scale_x, scale_y };
 
-			//swipe scroll
-			ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
-			if (ImGui::GetIO().MouseDownDuration[0] > 0.1f) {
-				auto scroll = ccp(ImGui::GetIO().MouseDelta.x, ImGui::GetIO().MouseDelta.y);
-				scroll = scroll / 100.f;
-				ImGui::GetIO().AddMouseWheelEvent(scroll.x, scroll.y);
+			//drag scrolling
+			ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true; //optional
+			auto static cWheelingWindow = ImGui::GetIO().Ctx->WheelingWindow;
+			if (!cWheelingWindow) if (ImGui::GetIO().MouseDownDuration[0] > 0.1f) {
+				ImGui::GetIO().AddMouseWheelEvent(ImGui::GetIO().MouseDelta.x / 100.f, ImGui::GetIO().MouseDelta.y / 100.f);
+				cWheelingWindow = ImGui::GetIO().Ctx->WheelingWindow;
 			}
-
-			ImGui::GetIO().MouseSource = ImGuiMouseSource_TouchScreen;
+			if (ImGui::IsMouseReleased(0)) cWheelingWindow = nullptr;
+			if (cWheelingWindow) {
+				cWheelingWindow->ScrollTarget = {
+					cWheelingWindow->Scroll.x + (ImGui::GetIO().MouseDelta.x * -3),
+					cWheelingWindow->Scroll.y + (ImGui::GetIO().MouseDelta.y * -3)
+				};
+			};
 
 			MainView();
-
-			ImGui::GetIO().MouseSource = ImGuiMouseSource_TouchScreen;
 
 			if (getMod()->getSavedValue<bool>("debug-windows", false)) {
 				ImGui::ShowMetricsWindow();
