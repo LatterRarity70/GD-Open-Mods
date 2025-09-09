@@ -26,7 +26,7 @@ add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 # Include Dear ImGui library
 set(IMGUI_VERSION "v1.92.0") 
-CPMAddPackage("gh:LatterRarity70/gd-imgui-cocos#geode") # specify a commit?
+CPMAddPackage("gh:LatterRarity70/gd-imgui-cocos#03c118f") # specify a commit?
 target_link_libraries(${PROJECT_NAME} imgui-cocos)
 
 setup_geode_mod(${PROJECT_NAME})
