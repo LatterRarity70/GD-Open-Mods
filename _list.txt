@@ -34,3 +34,4 @@ LatterRarity70/gd-imgui-cocos
 LatterRarity70/Localizations
 LatterRarity70/SSL-Certificate-Bypass
 LatterRarity70/Level-Comments-Widget
+LatterRarity70/Die-Delete-Hazards
