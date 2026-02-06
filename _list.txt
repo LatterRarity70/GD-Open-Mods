@@ -36,3 +36,4 @@ LatterRarity70/SSL-Certificate-Bypass
 LatterRarity70/Level-Comments-Widget
 LatterRarity70/Die-Delete-Hazards
 LatterRarity70/Swing
+LatterRarity70/MenuMusicToggle
