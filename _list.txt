@@ -38,3 +38,4 @@ LatterRarity70/Die-Delete-Hazards
 LatterRarity70/Swing
 LatterRarity70/MenuMusicToggle
 poweredbypie/aprilfools.2021
+LatterRarity70/REMINA
